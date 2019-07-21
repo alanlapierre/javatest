@@ -5,6 +5,8 @@ import com.alanlapierre.javatest.movie.model.Genre;
 import com.alanlapierre.javatest.movie.model.Movie;
 
 import java.util.Collection;
+import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,38 +37,23 @@ public class MovieService {
 	}
 
 	public Collection<Movie> findMoviesByTemplate(Movie template) throws IllegalArgumentException {
+		if((template == null) || (template.getMinutes()!=null && template.getMinutes()<0)){
+			throw new IllegalArgumentException("Minutes can not be negative");
+		}
 		
-		if(template!=null) {
+		Stream<Movie> movieStream = movieRepository.findAll().stream();
 			
-			Stream<Movie> movieStream = movieRepository.findAll().stream();
-			
-			if(template.getId()!=null) {
-				movieStream =  movieStream.filter(movie -> movie.getId() == template.getId());
-			}
-			else {
-				if(template.getName() != null) {
-					movieStream = movieStream.filter(movie -> movie.getName().toLowerCase().contains(template.getName().toLowerCase()));
-				}
-				
-				if(template.getMinutes()!= null) {
-					
-					if(template.getMinutes() > 0) {
-						movieStream = movieStream.filter(movie -> movie.getMinutes() <= template.getMinutes());
-					} else {
-						throw new IllegalArgumentException("Minutes can not be negative");
-					}
-				}
-
-				if(template.getGenre()!= null) {
-					movieStream = movieStream.filter(movie -> movie.getGenre() == template.getGenre());
-				}
-			}
-			
-			return movieStream.collect(Collectors.toList());
+		if(template.getId()!=null) {
+			movieStream =  movieStream.filter(movie -> movie.getId() == template.getId());
 		}
 		else {
-			throw new IllegalArgumentException("Param is null");
+			Predicate<Movie> isName = n -> n.getName().toLowerCase().contains(Optional.ofNullable(template.getName()).orElse("").toLowerCase());
+			Predicate<Movie> isMinutes = n -> n.getMinutes() <= Optional.ofNullable(template.getMinutes()).orElse(n.getMinutes());
+			Predicate<Movie> isGenre = n -> n.getGenre().toString().contains(Optional.ofNullable(template.getGenre()).orElse(Genre.EMPTY).toString());
+			movieStream = movieStream.filter(isName.and(isMinutes).and(isGenre));
 		}
+		return movieStream.collect(Collectors.toList());
+		
 		
 	}
 }
